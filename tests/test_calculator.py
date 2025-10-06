@@ -11,6 +11,8 @@ from app.calculator_config import CalculatorConfig
 from app.exceptions import OperationError, ValidationError
 from app.history import LoggingObserver, AutoSaveObserver
 from app.operations import OperationFactory
+from app.calculation import Calculation
+from app.operations import Addition, Multiplication
 
 # Fixture to initialize Calculator with a temporary directory for file paths
 @pytest.fixture
@@ -178,3 +180,59 @@ def test_calculator_repl_help(mock_print, mock_input):
 def test_calculator_repl_addition(mock_print, mock_input):
     calculator_repl()
     mock_print.assert_any_call("\nResult: 5")
+
+
+##############################################
+######### unit test for rows 268-275 of app/calculator.py
+
+"""
+Test that when Calculator history is empty, save_history()
+creates a CSV file with only headers and logs 'Empty history saved'.
+"""
+
+def test_save_history_empty_creates_csv_with_headers(tmp_path):
+
+    # Arrange
+    config = CalculatorConfig(base_dir=tmp_path)
+    calc = Calculator(config)
+    calc.clear_history()  # ensure empty
+
+    csv_file = config.history_file
+    log_file = config.log_file
+
+    # Act
+    calc.save_history()
+
+    # Assert CSV created
+    assert csv_file.exists(), "History CSV file was not created"
+    df = pd.read_csv(csv_file)
+    expected_columns = ['operation', 'operand1', 'operand2', 'result', 'timestamp']
+    assert list(df.columns) == expected_columns
+    assert df.empty, "CSV should be empty"
+
+    # Assert log file contains expected message
+    assert log_file.exists(), "Log file not created"
+    with open(log_file, "r") as f:
+        log_contents = f.read()
+    assert "Empty history saved" in log_contents, "Expected 'Empty history saved' not found in log file"
+
+
+##############################################
+######### unit test for row 371 of app/calculator.py
+
+"""
+Test that undo() returns False when the undo stack is empty.
+"""
+
+def test_undo_returns_false_when_stack_empty(tmp_path):
+
+    # Arrange: create calculator with empty undo stack
+    config = CalculatorConfig(base_dir=tmp_path)
+    calc = Calculator(config)
+    calc.undo_stack.clear()  # ensure undo stack is empty
+
+    # Act
+    result = calc.undo()
+
+    # Assert
+    assert result is False, "undo() should return False when undo_stack is empty"
